@@ -3,6 +3,7 @@ const router = express.Router();
 const Movie = require('../models/Movie.model');
 const mongoose = require('mongoose');
 
+const fileUploader = require('../config/cloudinary.config');
 
 // POST route - Add a movie:
 
@@ -10,7 +11,7 @@ router.post('/api/movies', (req, res, next) => {
     console.log('body: ', req.body)
     const { title, director, stars, description, image } = req.body;
 
-    if (!title || !director || !stars || !description || !image) {
+    if (!title || !director || !stars || !description) {
         res.status(400).json({ message: 'All fields are mandatory.' });
         return;
     }
@@ -20,10 +21,16 @@ router.post('/api/movies', (req, res, next) => {
         .catch((err) => res.json(err));
 
 })
+router.post('/api/upload', fileUploader.single('imageUrl'), (req, res, next) => {
+    if (!req.file) {
+        res.status(400).json({ message: 'No file uploaded' });
+        return;
+    }
+    res.status(200).json({ fileUrl: req.file.path })
+})
 
 //  search for a movie: 
 router.get('/api/movies/search', (req, res, next) => {
-    console.log('query: ', req.query);
     const { q: query } = req.query;
 
     Movie.find({
@@ -82,9 +89,10 @@ router.get('/api/movies/:id', (req, res, next) => {
 
 // PUT  route - update a specific movie by id:
 
-router.put('/api/movies/:id', (req, res, next) => {
+router.put('/api/movies/:id', fileUploader.single('imageUrl'), (req, res, next) => {
     const { title, director, stars, description, image } = req.body;
     const { id } = req.params;
+
 
     const str = stars.toString();
     const splittedStars = str.split(',')
@@ -94,7 +102,14 @@ router.put('/api/movies/:id', (req, res, next) => {
         res.status(400).json({ message: 'All fields are mandatory.' });
         return;
     }
-    Movie.findByIdAndUpdate(id, { title, director, stars: splittedStars, description, image }, { new: true })
+
+    let imageUrl;
+    if (req.file) {
+        imageUrl = req.file.path;
+    } else {
+        imageUrl = image;
+    }
+    Movie.findByIdAndUpdate(id, { title, director, stars: splittedStars, description, image: imageUrl }, { new: true })
         .then((updatedMovie) => res.status(200).json(updatedMovie))
         .catch((err) => res.json(err));
 })
